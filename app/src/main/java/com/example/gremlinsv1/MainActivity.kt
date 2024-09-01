@@ -39,6 +39,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -46,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
@@ -87,7 +89,15 @@ fun GremlinsApp() {
     NavHost(navController = navController, startDestination = "main") {
         composable("main") { MainScreen(navController) }
         composable("create_producto") { CreateProductoView { navController.popBackStack() } }
+        composable("edit_producto/{productoId}") { backStackEntry ->
+            val productoId = backStackEntry.arguments?.getString("productoId")?.toIntOrNull() ?: return@composable
+            EditProductoView(productoId = productoId, onNavigateBack = { navController.popBackStack() })
+        }
         composable("create_envio") { CreateEnvioView { navController.popBackStack() } }
+        composable("edit_envio/{envioId}") { backStackEntry ->
+            val envioId = backStackEntry.arguments?.getString("envioId")?.toIntOrNull() ?: return@composable
+            EditEnvioView(envioId = envioId, onNavigateBack = { navController.popBackStack() })
+        }
         composable("create_cliente") { CreateClienteView { navController.popBackStack() } }
         composable("create_proveedor") { CreateProveedorView { navController.popBackStack() } }
     }
@@ -106,11 +116,13 @@ fun MainScreen(navController: NavController) {
                     containerColor = Color(0xFF00796B)
                 ),
                 actions = {
-                    Switch(
-                        checked = false,
-                        onCheckedChange = {},
-                        modifier = Modifier.padding(end = 16.dp)
-                    )
+                    IconButton(onClick = { /* TODO: Implement user profile action */ }) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = "User Profile",
+                            tint = Color.White
+                        )
+                    }
                 }
             )
         },
@@ -119,10 +131,10 @@ fun MainScreen(navController: NavController) {
         }
     ) { innerPadding ->
         when (selectedTab) {
-            0 -> ProductosView(innerPadding, onCreateNew = { navController.navigate("create_producto") })
-            1 -> EnviosView(innerPadding, onCreateNew = { navController.navigate("create_envio") })
-            2 -> ClientesView(innerPadding, onCreateNew = { navController.navigate("create_cliente") })
-            3 -> ProveedoresView(innerPadding, onCreateNew = { navController.navigate("create_proveedor") })
+            0 -> ProductosView(innerPadding, onCreateNew = { navController.navigate("create_producto") }, navController = navController )
+            1 -> EnviosView(innerPadding, onCreateNew = { navController.navigate("create_envio") }, navController = navController )
+            2 -> ClientesView(innerPadding, onCreateNew = { navController.navigate("create_cliente") }, navController = navController)
+            3 -> ProveedoresView(innerPadding, onCreateNew = { navController.navigate("create_proveedor") }, navController = navController)
         }
     }
 }
@@ -142,7 +154,7 @@ fun BottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
                     Box(
                         modifier = Modifier
                             .background(
-                                if (selectedTab == index) Color(0xFFFFA500) else Color.Transparent,
+                                if (selectedTab == index) Color(0xFFFFA500).copy(alpha = 0.2f) else Color.Transparent,
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(4.dp)
@@ -150,14 +162,14 @@ fun BottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
                         Icon(
                             icon,
                             contentDescription = label,
-                            tint = if (selectedTab == index) Color(0xFFFFA500) else Color.Gray
+                            tint = if (selectedTab == index) Color(0xFFFFA500) else Color.Gray.copy(alpha = 0.6f)
                         )
                     }
                 },
                 label = {
                     Text(
                         label,
-                        color = if (selectedTab == index) Color(0xFFFFA500) else Color.Gray
+                        color = if (selectedTab == index) Color(0xFFFFA500) else Color.Gray.copy(alpha = 0.6f)
                     )
                 },
                 selected = selectedTab == index,
@@ -218,7 +230,7 @@ fun GenericView(
 }
 
 @Composable
-fun ProductosView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
+fun ProductosView(innerPadding: PaddingValues, onCreateNew: () -> Unit, navController: NavController) {
     val context = LocalContext.current
     val databaseHelper = (context.applicationContext as GremlinsApplication).databaseHelper
     var productos by remember { mutableStateOf(listOf<Producto>()) }
@@ -227,20 +239,40 @@ fun ProductosView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
         productos = databaseHelper.getAllProductos()
     }
 
-    Column(modifier = Modifier.padding(innerPadding)) {
-        Button(onClick = onCreateNew, modifier = Modifier.align(Alignment.End).padding(16.dp)) {
-            Text("Crear nuevo producto")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onCreateNew,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))
+            ) {
+                Text("Crear nuevo producto")
+            }
         }
-        LazyColumn {
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
             items(productos) { producto ->
-                ProductoItem(producto)
+                ProductoItem(
+                    producto = producto,
+                    onItemClick = { navController.navigate("edit_producto/${producto.id}") }
+                )
             }
         }
     }
 }
 
 @Composable
-fun EnviosView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
+fun EnviosView(innerPadding: PaddingValues, onCreateNew: () -> Unit, navController: NavController) {
     val context = LocalContext.current
     val databaseHelper = (context.applicationContext as GremlinsApplication).databaseHelper
     var envios by remember { mutableStateOf(listOf<Envio>()) }
@@ -249,20 +281,40 @@ fun EnviosView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
         envios = databaseHelper.getAllEnvios()
     }
 
-    Column(modifier = Modifier.padding(innerPadding)) {
-        Button(onClick = onCreateNew, modifier = Modifier.align(Alignment.End).padding(16.dp)) {
-            Text("Crear nuevo envío")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onCreateNew,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))
+            ) {
+                Text("Crear nuevo envío")
+            }
         }
-        LazyColumn {
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
             items(envios) { envio ->
-                EnvioItem(envio)
+                EnvioItem(
+                    envio = envio,
+                    onItemClick = { navController.navigate("edit_envio/${envio.id}") }
+                )
             }
         }
     }
 }
 
 @Composable
-fun ClientesView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
+fun ClientesView(innerPadding: PaddingValues, onCreateNew: () -> Unit, navController: NavController) {
     val context = LocalContext.current
     val databaseHelper = (context.applicationContext as GremlinsApplication).databaseHelper
     var clientes by remember { mutableStateOf(listOf<Cliente>()) }
@@ -271,20 +323,37 @@ fun ClientesView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
         clientes = databaseHelper.getAllClientes()
     }
 
-    Column(modifier = Modifier.padding(innerPadding)) {
-        Button(onClick = onCreateNew, modifier = Modifier.align(Alignment.End).padding(16.dp)) {
-            Text("Crear nuevo cliente")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onCreateNew,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))
+            ) {
+                Text("Crear nuevo cliente")
+            }
         }
-        LazyColumn {
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
             items(clientes) { cliente ->
-                ClienteItem(cliente)
+                ClienteItem(cliente = cliente)
             }
         }
     }
 }
 
 @Composable
-fun ProveedoresView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
+fun ProveedoresView(innerPadding: PaddingValues, onCreateNew: () -> Unit, navController: NavController) {
     val context = LocalContext.current
     val databaseHelper = (context.applicationContext as GremlinsApplication).databaseHelper
     var proveedores by remember { mutableStateOf(listOf<Proveedor>()) }
@@ -293,36 +362,67 @@ fun ProveedoresView(innerPadding: PaddingValues, onCreateNew: () -> Unit) {
         proveedores = databaseHelper.getAllProveedores()
     }
 
-    Column(modifier = Modifier.padding(innerPadding)) {
-        Button(onClick = onCreateNew, modifier = Modifier.align(Alignment.End).padding(16.dp)) {
-            Text("Crear nuevo proveedor")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onCreateNew,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))
+            ) {
+                Text("Crear nuevo proveedor")
+            }
         }
-        LazyColumn {
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
             items(proveedores) { proveedor ->
-                ProveedorItem(proveedor)
+                ProveedorItem(proveedor = proveedor)
             }
         }
     }
 }
 
 @Composable
-fun ProductoItem(producto: Producto) {
-    ListItem(
-        text = producto.nombre,
-        icon = Icons.Default.Inventory,
-        secondaryText = "Precio: ${producto.precio}, Proveedor: ${producto.proveedor}"
-    )
+fun ProductoItem(producto: Producto, onItemClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onItemClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        ListItem(
+            text = producto.nombre,
+            icon = Icons.Default.Inventory,
+            secondaryText = "Precio: ${producto.precio}, Proveedor: ${producto.proveedor}")
+    }
 }
 
 @Composable
-fun EnvioItem(envio: Envio) {
-    ListItem(
-        text = "Envío #${envio.id}",
-        icon = Icons.Default.LocalShipping,
-        secondaryText = "Fecha: ${envio.fechaEnvio}, Producto: ${envio.producto}, Cliente: ${envio.cliente}, Estado: ${envio.estado}"
-    )
+fun EnvioItem(envio: Envio, onItemClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onItemClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        ListItem(
+            text = "Envío #${envio.id}",
+            icon = Icons.Default.LocalShipping,
+            secondaryText = "Fecha: ${envio.fechaEnvio}, Producto: ${envio.producto}, Cliente: ${envio.cliente}, Estado: ${envio.estado}"
+        )
+    }
 }
 
+// OLD ClienteItem and ProveedorItem functions
 @Composable
 fun ClienteItem(cliente: Cliente) {
     ListItem(
@@ -341,6 +441,45 @@ fun ProveedorItem(proveedor: Proveedor) {
     )
 }
 
+/*
+// new cliente and proveedor Item functions
+
+@Composable
+fun ClienteItem(cliente: Cliente) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = cliente.nombre, fontWeight = FontWeight.Bold)
+            Text(text = "Teléfono: ${cliente.telefono}")
+            Text(text = "Email: ${cliente.email}")
+        }
+    }
+}
+
+@Composable
+fun ProveedorItem(proveedor: Proveedor) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = proveedor.nombre, fontWeight = FontWeight.Bold)
+            Text(text = "Teléfono: ${proveedor.telefono}")
+            Text(text = "Email: ${proveedor.email}")
+        }
+    }
+}
+*/
 @Composable
 fun ListItem(text: String, icon: ImageVector, secondaryText: String) {
     Card(
@@ -372,6 +511,183 @@ fun ListItem(text: String, icon: ImageVector, secondaryText: String) {
                 modifier = Modifier.size(24.dp),
                 tint = Color.Gray
             )
+        }
+    }
+}
+
+// EDIT VIEWS
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditProductoView(productoId: Int, onNavigateBack: () -> Unit) {
+    val context = LocalContext.current
+    val databaseHelper = (context.applicationContext as GremlinsApplication).databaseHelper
+    var producto by remember { mutableStateOf<Producto?>(null) }
+    var nombre by remember { mutableStateOf("") }
+    var precio by remember { mutableStateOf("") }
+    var proveedor by remember { mutableStateOf("") }
+
+    LaunchedEffect(productoId) {
+        producto = databaseHelper.getProductoById(productoId)
+        producto?.let {
+            nombre = it.nombre
+            precio = it.precio.toString()
+            proveedor = it.proveedor
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Editar/Borrar producto") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            OutlinedTextField(
+                value = nombre,
+                onValueChange = { nombre = it },
+                label = { Text("Nombre del producto") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = precio,
+                onValueChange = { precio = it },
+                label = { Text("Precio") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = proveedor,
+                onValueChange = { proveedor = it },
+                label = { Text("Proveedor") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Button(
+                    onClick = {
+                        databaseHelper.deleteProducto(productoId)
+                        onNavigateBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Borrar")
+                }
+                Button(
+                    onClick = {
+                        databaseHelper.updateProducto(productoId, nombre, precio.toDoubleOrNull() ?: 0.0, proveedor)
+                        onNavigateBack()
+                    }
+                ) {
+                    Text("Guardar")
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditEnvioView(envioId: Int, onNavigateBack: () -> Unit) {
+    val context = LocalContext.current
+    val databaseHelper = (context.applicationContext as GremlinsApplication).databaseHelper
+    var envio by remember { mutableStateOf<Envio?>(null) }
+    var fechaEnvio by remember { mutableStateOf("") }
+    var producto by remember { mutableStateOf("") }
+    var cliente by remember { mutableStateOf("") }
+    var estado by remember { mutableStateOf("") }
+
+    LaunchedEffect(envioId) {
+        envio = databaseHelper.getEnvioById(envioId)
+        envio?.let {
+            fechaEnvio = it.fechaEnvio
+            producto = it.producto
+            cliente = it.cliente
+            estado = it.estado
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Editar/Borrar envío") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            OutlinedTextField(
+                value = fechaEnvio,
+                onValueChange = { fechaEnvio = it },
+                label = { Text("Fecha de envío") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = producto,
+                onValueChange = { producto = it },
+                label = { Text("Producto") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = cliente,
+                onValueChange = { cliente = it },
+                label = { Text("Cliente") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = estado,
+                onValueChange = { estado = it },
+                label = { Text("Estado") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Button(
+                    onClick = {
+                        databaseHelper.deleteEnvio(envioId)
+                        onNavigateBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Borrar")
+                }
+                Button(
+                    onClick = {
+                        databaseHelper.updateEnvio(envioId, fechaEnvio, producto, cliente, estado)
+                        onNavigateBack()
+                    }
+                ) {
+                    Text("Guardar")
+                }
+            }
         }
     }
 }
@@ -639,8 +955,96 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         cursor.close()
         return proveedores
     }
+
+    // Producto getById, Update, Delete
+    fun getProductoById(id: Int): Producto? {
+        val db = this.readableDatabase
+        val cursor = db.query(
+            TABLE_PRODUCTOS,
+            arrayOf(KEY_ID, KEY_NOMBRE, KEY_PRECIO, KEY_PROVEEDOR),
+            "$KEY_ID = ?",
+            arrayOf(id.toString()),
+            null,
+            null,
+            null
+        )
+
+        return if (cursor.moveToFirst()) {
+            val producto = Producto(
+                cursor.getInt(cursor.getColumnIndexOrThrow(KEY_ID)),
+                cursor.getString(cursor.getColumnIndexOrThrow(KEY_NOMBRE)),
+                cursor.getDouble(cursor.getColumnIndexOrThrow(KEY_PRECIO)),
+                cursor.getString(cursor.getColumnIndexOrThrow(KEY_PROVEEDOR))
+            )
+            cursor.close()
+            producto
+        } else {
+            cursor.close()
+            null
+        }
+    }
+
+    fun updateProducto(id: Int, nombre: String, precio: Double, proveedor: String): Int {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(KEY_NOMBRE, nombre)
+            put(KEY_PRECIO, precio)
+            put(KEY_PROVEEDOR, proveedor)
+        }
+        return db.update(TABLE_PRODUCTOS, values, "$KEY_ID = ?", arrayOf(id.toString()))
+    }
+
+    fun deleteProducto(id: Int): Int {
+        val db = this.writableDatabase
+        return db.delete(TABLE_PRODUCTOS, "$KEY_ID = ?", arrayOf(id.toString()))
+    }
+
+    // Envío getById, Update, Delete
+    fun getEnvioById(id: Int): Envio? {
+        val db = this.readableDatabase
+        val cursor = db.query(
+            TABLE_ENVIOS,
+            arrayOf(KEY_ID, KEY_FECHA_ENVIO, KEY_PRODUCTO, KEY_CLIENTE, KEY_ESTADO),
+            "$KEY_ID = ?",
+            arrayOf(id.toString()),
+            null,
+            null,
+            null
+        )
+
+        return if (cursor.moveToFirst()) {
+            val envio = Envio(
+                cursor.getInt(cursor.getColumnIndexOrThrow(KEY_ID)),
+                cursor.getString(cursor.getColumnIndexOrThrow(KEY_FECHA_ENVIO)),
+                cursor.getString(cursor.getColumnIndexOrThrow(KEY_PRODUCTO)),
+                cursor.getString(cursor.getColumnIndexOrThrow(KEY_CLIENTE)),
+                cursor.getString(cursor.getColumnIndexOrThrow(KEY_ESTADO))
+            )
+            cursor.close()
+            envio
+        } else {
+            cursor.close()
+            null
+        }
+    }
+
+    fun updateEnvio(id: Int, fechaEnvio: String, producto: String, cliente: String, estado: String): Int {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(KEY_FECHA_ENVIO, fechaEnvio)
+            put(KEY_PRODUCTO, producto)
+            put(KEY_CLIENTE, cliente)
+            put(KEY_ESTADO, estado)
+        }
+        return db.update(TABLE_ENVIOS, values, "$KEY_ID = ?", arrayOf(id.toString()))
+    }
+
+    fun deleteEnvio(id: Int): Int {
+        val db = this.writableDatabase
+        return db.delete(TABLE_ENVIOS, "$KEY_ID = ?", arrayOf(id.toString()))
+    }
 }
-    // TODO: Implement get by parameter, update, and delete operations for each entity
+
 
 // Composables views of create
 
